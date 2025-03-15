@@ -1,5 +1,5 @@
 """
-Face Recognition Attendance System
+Pet Feeder Detection
 This module handles the main application logic for face recognition and attendance tracking.
 """
 
@@ -356,11 +356,6 @@ def main() -> None:
     try:
         # Initialize camera
         cap = initialize_camera()
-
-        # Set up FPS calculation
-        fps_start_time = datetime.now()
-        fps_counter = 0
-        fps = 0
         
         # Skip frame counter for processing optimization
         process_every_n_frames = 2  # Process every 2nd frame
@@ -403,15 +398,6 @@ def main() -> None:
                 cap.release()
                 cap = initialize_camera()
                 continue
-
-            # Calculate FPS
-            fps_counter += 1
-            time_diff = (datetime.now() - fps_start_time).total_seconds()
-            if time_diff >= 1.0:
-                fps = fps_counter / time_diff
-                fps_counter = 0
-                fps_start_time = datetime.now()
-                print(f"FPS: {fps:.2f}")
 
             # Skip frames to improve performance
             frame_count += 1
@@ -493,17 +479,6 @@ def main() -> None:
             else:
                 # For skipped frames, just update the background with the current mode
                 img_background[44 : 44 + 633, 808 : 808 + 414] = img_mode_list[mode_type]
-
-            # Display FPS on the frame
-            cv2.putText(
-                img_background,
-                f"FPS: {fps:.1f}",
-                (55, 150),
-                cv2.FONT_HERSHEY_SIMPLEX,
-                0.7,
-                (0, 255, 0),
-                2,
-            )
 
             # Continue with display logic for all frames
             if counter != 0 and mode_type != 3:
