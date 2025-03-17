@@ -1,6 +1,6 @@
 """
-Pet Feeder Detection
-This module handles the main application logic for face recognition and attendance tracking.
+Pet NOVA
+This module handles the main application logic for face recognition and pet feed tracking.
 """
 
 from datetime import datetime
@@ -25,12 +25,11 @@ def initialize_camera(camera_index: int = 0) -> cv2.VideoCapture:
         VideoCapture object
     """
     # IP webcam configuration
-    ip = "192.168.1.3"
-    address = f"http://{ip}:8080/video"  # Changed from https to http for better performance
-    
+    ip = "192.168.165.12"
+
     # Use RTSP if available for better performance
     rtsp_address = f"rtsp://{ip}:8080/h264_ulaw.sdp"
-    
+
     # Try RTSP first (better performance)
     cap = cv2.VideoCapture(rtsp_address)
     if not cap.isOpened():
@@ -41,17 +40,17 @@ def initialize_camera(camera_index: int = 0) -> cv2.VideoCapture:
             cap = cv2.VideoCapture(camera_index)
             if not cap.isOpened():
                 raise ValueError("Error: Could not open any camera")
-    
+
     # Optimize buffer size (smaller buffer = less latency)
     cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
-    
+
     # Set lower resolution if possible to improve performance
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
-    
+
     # Set codec to MJPG for better performance if supported
-    cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*'MJPG'))
-    
+    cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*"MJPG"))
+
     print("Camera initialized successfully")
     return cap
 
@@ -212,22 +211,22 @@ def generate_encodings() -> Tuple[List[np.ndarray], List[str], List[str]]:
     return encode_list_known, student_ids, image_names
 
 
-# Add a new function to update the CSV file with attendance
-def update_attendance_csv(image_name: str) -> None:
+# Add a new function to update the CSV file with pet_data
+def update_csv(image_name: str) -> None:
     """
-    Update attendance in CSV file for the matched image.
+    Update pet_data in CSV file for the matched image.
 
     Args:
         image_name: Name of the matched image file
     """
-    csv_file = "attendance.csv"
+    csv_file = "pet_data.csv"
     current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
     # Create CSV if it doesn't exist
     if not os.path.exists(csv_file):
         with open(csv_file, "w", newline="", encoding="utf-8") as file:
             writer = csv.writer(file)
-            writer.writerow(["image_name", "last_attendance_time", "total_attendance"])
+            writer.writerow(["pet_name", "last_appearance"])
 
     # Read existing data
     rows = []
@@ -237,23 +236,20 @@ def update_attendance_csv(image_name: str) -> None:
         with open(csv_file, "r", encoding="utf-8") as file:
             reader = csv.DictReader(file)
             for row in reader:
-                if row["image_name"] == image_name:
+                if row["pet_name"] == image_name.split(".")[0]:
                     # Update existing entry
                     image_exists = True
                     # Check if enough time has passed (1 minute for testing)
-                    if "last_attendance_time" in row:
+                    if "last_appearance" in row:
                         last_time = datetime.strptime(
-                            row["last_attendance_time"], "%Y-%m-%d %H:%M:%S"
+                            row["last_appearance"], "%Y-%m-%d %H:%M:%S"
                         )
                         time_diff = (datetime.now() - last_time).total_seconds()
-                        # if time_diff < 60:  # 60 seconds = 1 minute
-                        #     print(f"Attendance already marked for {image_name}")
-                        #     return False
+                        if time_diff < 60:  # 60 seconds = 1 minute
+                            print(f"Pet Data already marked for {image_name}")
+                            return False
 
-                    row["last_attendance_time"] = current_time
-                    row["total_attendance"] = str(
-                        int(row.get("total_attendance", "0")) + 1
-                    )
+                    row["last_appearance"] = current_time
                 rows.append(row)
     except Exception as e:
         print(f"Error reading CSV: {e}")
@@ -262,59 +258,56 @@ def update_attendance_csv(image_name: str) -> None:
     if not image_exists:
         rows.append(
             {
-                "image_name": image_name,
-                "last_attendance_time": current_time,
-                "total_attendance": "1",
+                "pet_name": image_name.split(".")[0],
+                "last_appearance": current_time,
             }
         )
 
     # Write updated data back to CSV
     try:
         with open(csv_file, "w", newline="", encoding="utf-8") as file:
-            fieldnames = ["image_name", "last_attendance_time", "total_attendance"]
+            fieldnames = ["pet_name", "last_appearance"]
             writer = csv.DictWriter(file, fieldnames=fieldnames)
             writer.writeheader()
             writer.writerows(rows)
-        print(f"Attendance updated for {image_name}")
+        print(f"Pet Data updated for {image_name}")
         return True
     except Exception as e:
         print(f"Error writing to CSV: {e}")
         return False
 
 
-# Add a function to get attendance info
+# Add a function to get pet_data info
 def get_attendance_info(image_name: str) -> Dict[str, Any]:
     """
-    Get attendance information for an image.
+    Get pet_data information for an image.
 
     Args:
         image_name: Name of the image file
 
     Returns:
-        Dictionary with attendance information
+        Dictionary with pet_data information
     """
-    csv_file = "attendance.csv"
+    csv_file = "pet_data.csv"
 
     if not os.path.exists(csv_file):
         return {
-            "image_name": image_name,
-            "total_attendance": "0",
-            "last_attendance_time": "Never",
+            "pet_name": image_name,
+            "last_appearance": "Never",
         }
 
     try:
         with open(csv_file, "r", encoding="utf-8") as file:
             reader = csv.DictReader(file)
             for row in reader:
-                if row["image_name"] == image_name:
+                if row["pet_name"] == image_name:
                     return row
     except Exception as e:
         print(f"Error reading CSV: {e}")
 
     return {
-        "image_name": image_name,
-        "total_attendance": "0",
-        "last_attendance_time": "Never",
+        "pet_name": image_name,
+        "last_appearance": "Never",
     }
 
 
@@ -344,7 +337,7 @@ def load_encodings(file_path: str) -> Tuple[List[np.ndarray], List[str], List[st
             # Backward compatibility with older format
             encode_list_known, student_ids = encode_list_known_with_ids
             # Create default image names based on student IDs
-            image_names = [f"{id}.png" for id in student_ids]
+            image_names = [f"{id}.jpeg" for id in student_ids]
             return encode_list_known, student_ids, image_names
     except Exception as e:
         print(f"Error loading encodings: {e}. Generating new encodings...")
@@ -352,11 +345,11 @@ def load_encodings(file_path: str) -> Tuple[List[np.ndarray], List[str], List[st
 
 
 def main() -> None:
-    """Main function to run the face recognition attendance system."""
+    """Main function to run the face recognition pet_data system."""
     try:
         # Initialize camera
         cap = initialize_camera()
-        
+
         # Skip frame counter for processing optimization
         process_every_n_frames = 2  # Process every 2nd frame
         frame_count = 0
@@ -401,14 +394,14 @@ def main() -> None:
 
             # Skip frames to improve performance
             frame_count += 1
-            process_this_frame = (frame_count % process_every_n_frames == 0)
-            
+            process_this_frame = frame_count % process_every_n_frames == 0
+
             # Always resize the frame to match the expected dimensions
             img = cv2.resize(img, (640, 480))
-            
+
             # Place current frame on background
             img_background[162 : 162 + 480, 55 : 55 + 640] = img
-            
+
             # Only process face recognition on selected frames
             if process_this_frame:
                 # Resize and convert image for face recognition
@@ -416,10 +409,16 @@ def main() -> None:
                 img_s = cv2.cvtColor(img_s, cv2.COLOR_BGR2RGB)
 
                 # Detect faces in current frame
-                face_cur_frame = face_recognition.face_locations(img_s, model="hog")  # Use HOG for better performance
-                encode_cur_frame = face_recognition.face_encodings(img_s, face_cur_frame)
+                face_cur_frame = face_recognition.face_locations(
+                    img_s, model="hog"
+                )  # Use HOG for better performance
+                encode_cur_frame = face_recognition.face_encodings(
+                    img_s, face_cur_frame
+                )
 
-                img_background[44 : 44 + 633, 808 : 808 + 414] = img_mode_list[mode_type]
+                img_background[44 : 44 + 633, 808 : 808 + 414] = img_mode_list[
+                    mode_type
+                ]
 
                 # Process detected faces
                 if face_cur_frame:
@@ -440,7 +439,9 @@ def main() -> None:
                             y1, x2, y2, x1 = face_loc
                             y1, x2, y2, x1 = y1 * 4, x2 * 4, y2 * 4, x1 * 4
                             bbox = 55 + x1, 162 + y1, x2 - x1, y2 - y1
-                            img_background = cvzone.cornerRect(img_background, bbox, rt=0)
+                            img_background = cvzone.cornerRect(
+                                img_background, bbox, rt=0
+                            )
 
                             # Get student ID and image name
                             student_id = student_ids[match_index]
@@ -448,16 +449,18 @@ def main() -> None:
 
                             # Initialize loading state
                             if counter == 0:
-                                cvzone.putTextRect(img_background, "Loading", (275, 400))
-                                cv2.imshow("Face Attendance", img_background)
+                                cvzone.putTextRect(
+                                    img_background, "Loading", (275, 400)
+                                )
+                                cv2.imshow("Face Pet Data", img_background)
                                 cv2.waitKey(1)
                                 counter = 1
                                 mode_type = 1
-                    
+
                     # Process image data after face recognition
                     if counter != 0:
                         if counter == 1:
-                            # Get attendance info from CSV
+                            # Get pet_data info from CSV
                             attendance_info = get_attendance_info(current_image_name)
                             print(f"Image recognized: {current_image_name}")
 
@@ -468,30 +471,36 @@ def main() -> None:
                                 if img_student is None:
                                     print(f"Warning: Could not read image {img_path}")
 
-                            # Update attendance
-                            attendance_updated = update_attendance_csv(current_image_name)
+                            # Update pet_data
+                            attendance_updated = update_csv(
+                                current_image_name
+                            )
                             if not attendance_updated:
-                                mode_type = 3  # Already marked attendance
+                                mode_type = 3  # Already marked pet_data
                                 counter = 0
                                 img_background[44 : 44 + 633, 808 : 808 + 414] = (
                                     img_mode_list[mode_type]
                                 )
             else:
                 # For skipped frames, just update the background with the current mode
-                img_background[44 : 44 + 633, 808 : 808 + 414] = img_mode_list[mode_type]
+                img_background[44 : 44 + 633, 808 : 808 + 414] = img_mode_list[
+                    mode_type
+                ]
 
             # Continue with display logic for all frames
             if counter != 0 and mode_type != 3:
                 if 10 < counter < 20:
                     mode_type = 2  # Update mode
 
-                img_background[44 : 44 + 633, 808 : 808 + 414] = img_mode_list[mode_type]
+                img_background[44 : 44 + 633, 808 : 808 + 414] = img_mode_list[
+                    mode_type
+                ]
 
                 if counter <= 10 and attendance_info:
-                    # Display attendance details
+                    # Display pet_data details
                     cv2.putText(
                         img_background,
-                        str(attendance_info.get("total_attendance", "0")),
+                        str(attendance_info.get("last_appearance", "Never")),  # Fixed: Convert value to string
                         (861, 125),
                         cv2.FONT_HERSHEY_COMPLEX,
                         1,
@@ -543,15 +552,21 @@ def main() -> None:
                     attendance_info = None
                     img_student = None
                     current_image_name = ""
-                    img_background[44 : 44 + 633, 808 : 808 + 414] = img_mode_list[mode_type]
-            elif process_this_frame and 'face_cur_frame' in locals() and not face_cur_frame:
+                    img_background[44 : 44 + 633, 808 : 808 + 414] = img_mode_list[
+                        mode_type
+                    ]
+            elif (
+                process_this_frame
+                and "face_cur_frame" in locals()
+                and not face_cur_frame
+            ):
                 # No face detected
                 mode_type = 0
                 counter = 0
                 current_image_name = ""
 
             # Display the result
-            cv2.imshow("Face Attendance", img_background)
+            cv2.imshow("Face Pet Data", img_background)
             key = cv2.waitKey(1)
 
             # Press 'q' to quit
